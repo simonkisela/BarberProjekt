@@ -13,6 +13,26 @@ CORS(app)
 def home():
     return "BarberProjekt API beží 🎉"
 
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.json
+    db = SessionLocal()
+
+    # Skontroluj, či už meno existuje
+    existing_admin = db.query(Admin).filter_by(username=data["username"]).first()
+    if existing_admin:
+        db.close()
+        return jsonify({"message": "Admin already exists"}), 409
+
+    # Vytvor nového admina
+    new_admin = Admin(username=data["username"], password=data["password"])
+    db.add(new_admin)
+    db.commit()
+    db.refresh(new_admin)
+    db.close()
+    return jsonify({"message": "Admin registered"}), 201
+
+
 @app.route("/reservations", methods=["GET"])
 def get_reservations():
     db = SessionLocal()
