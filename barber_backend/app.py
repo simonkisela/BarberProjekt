@@ -1,15 +1,13 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from barber_backend.models import init_db, SessionLocal, Reservation, Admin
+from db import SessionLocal, engine, Base
+from models import Reservation, Admin
+
+# Vytvorenie tabuliek v databáze
+Base.metadata.create_all(bind=engine)
 
 app = Flask(__name__)
 CORS(app)
-
-init_db()
-
-@app.route("/", methods=["GET"])
-def index():
-    return jsonify({"message": "Backend beží!"})
 
 @app.route("/reservations", methods=["GET"])
 def get_reservations():
@@ -28,14 +26,10 @@ def get_reservations():
 def create_reservation():
     data = request.json
     db = SessionLocal()
-    new_reservation = Reservation(
-        name=data["name"],
-        email=data["email"],
-        date=data["date"],
-        time=data["time"]
-    )
-    db.add(new_reservation)
+    reservation = Reservation(**data)
+    db.add(reservation)
     db.commit()
+    db.refresh(reservation)
     db.close()
     return jsonify({"message": "Reservation created"}), 201
 
