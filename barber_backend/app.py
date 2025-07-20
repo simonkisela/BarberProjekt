@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
-from models import init_db
+from barber_backend.models import init_db
 
 app = Flask(__name__)
 CORS(app)

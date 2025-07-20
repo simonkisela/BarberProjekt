@@ -1,1 +1,1 @@
-web: gunicorn barber-backend.app:app
+web: gunicorn barber_backend.app:app
