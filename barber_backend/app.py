@@ -9,6 +9,10 @@ Base.metadata.create_all(bind=engine)
 app = Flask(__name__)
 CORS(app)
 
+@app.route("/")
+def home():
+    return "BarberProjekt API beží 🎉"
+
 @app.route("/reservations", methods=["GET"])
 def get_reservations():
     db = SessionLocal()
