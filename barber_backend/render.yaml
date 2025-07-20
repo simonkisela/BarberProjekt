@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: barber-backend
+    env: python
+    plan: free  # alebo iný podľa potreby
+    pythonVersion: "3.11.5"
+    buildCommand: "pip install -r barber_backend/requirements.txt"
+    startCommand: "gunicorn barber_backend.app:app"
