@@ -1,43 +1,11 @@
-# Python cache a súbory
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-
-# Virtuálne prostredia
-env/
-venv/
-.venv/
-
-# Databázové súbory
-*.sqlite3
-*.db
-
-# IDE a editor nastavenia
-.vscode/
+# PyCharm / JetBrains
 .idea/
-*.sublime-project
-*.sublime-workspace
+*.iml
+*.xml
+/httpRequests/
+.shelf/
+workspace.xml
 
-# Environment premenné
-.env
-
-# Node.js knižnice a build súbory
-node_modules/
-build/
-dist/
-
-# Log súbory
-*.log
-
-# Systémové súbory
+# OS veci
 .DS_Store
 Thumbs.db
-
-# Binarne súbory
-*.exe
-*.dll
-*.so
-
-# HTTP klient requests (ak používaš)
-httpRequests/
