@@ -8,6 +8,11 @@ CORS(app)
 
 init_db()
 
+# Koreňová route pre Render kontrolu
+@app.route("/", methods=["GET"])
+def index():
+    return jsonify({"message": "BarberProjekt backend beží úspešne!"})
+
 @app.route("/reservations", methods=["GET"])
 def get_reservations():
     conn = sqlite3.connect('db.sqlite3')
