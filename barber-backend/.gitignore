@@ -1,0 +1,22 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+*.env
+
+# Logy a databáza
+*.log
+*.sqlite3
+instance/
+
+# Build/Dist (ak buildíš niečo)
+build/
+dist/
+
+# OS veci
+.DS_Store
