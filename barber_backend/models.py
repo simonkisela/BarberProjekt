@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String
-from db import Base
+from barber_backend.db import Base
 
 class Reservation(Base):
     __tablename__ = "reservations"

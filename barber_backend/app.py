@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from db import SessionLocal, engine, Base
+from barber_backend.db import SessionLocal, engine, Base
 from models import Reservation, Admin
 
 # Vytvorenie tabuliek v databáze
