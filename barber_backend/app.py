@@ -1,3 +1,4 @@
+import app
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from barber_backend.db import SessionLocal, engine, Base
@@ -11,6 +12,9 @@ from marshmallow import ValidationError
 
 # Tajný kľúč pre podpisovanie tokenov
 SECRET_KEY = "supertajnykluc_na_tokeny"  # v produkcii použi silnejší a v .env
+
+from auth import token_required
+
 
 
 def token_required(f):
@@ -48,6 +52,11 @@ CORS(app)
 def home():
     return "BarberProjekt API beží 🎉"
 
+@app.route('/admin/data', methods=['GET'])
+@token_required
+def admin_data():
+    # Táto route je chránená tokenom
+    return jsonify({"message": "Toto je admin panel."})
 
 @app.route("/register", methods=["POST"])
 def register():
@@ -97,13 +106,101 @@ def get_reservations(current_user):
     db = SessionLocal()
     reservations = db.query(Reservation).all()
     db.close()
-    return jsonify([{
-        "id": r.id,
-        "name": r.name,
-        "email": r.email,
-        "date": r.date,
-        "time": r.time
-    } for r in reservations])
+    result = [
+        {
+            "id": r.id,
+            "name": r.name,
+            "email": r.email,
+            "date": r.date.isoformat(),
+            "time": r.time,
+        }
+        for r in reservations
+    ]
+    return jsonify(result)
+
+@app.route("/reservations/<int:reservation_id>", methods=["GET"])
+@token_required
+def get_reservation(current_user, reservation_id):
+    db = SessionLocal()
+    reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    db.close()
+    if not reservation:
+        return jsonify({"message": "Reservation not found"}), 404
+    return jsonify({
+        "id": reservation.id,
+        "name": reservation.name,
+        "email": reservation.email,
+        "date": reservation.date.isoformat(),
+        "time": reservation.time,
+    })
+
+@app.route("/reservations/<int:reservation_id>", methods=["PUT"])
+@token_required
+def update_reservation(current_user, reservation_id):
+    data = request.json
+    schema = ReservationSchema()
+    try:
+        validated_data = schema.load(data)
+    except ValidationError as err:
+        return jsonify({"errors": err.messages}), 400
+
+    db = SessionLocal()
+    reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not reservation:
+        db.close()
+        return jsonify({"message": "Reservation not found"}), 404
+
+    reservation.name = validated_data["name"]
+    reservation.email = validated_data["email"]
+    reservation.date = validated_data["date"]
+    reservation.time = validated_data["time"]
+
+    db.commit()
+    db.refresh(reservation)
+    db.close()
+    return jsonify({
+        "id": reservation.id,
+        "name": reservation.name,
+        "email": reservation.email,
+        "date": reservation.date.isoformat(),
+        "time": reservation.time,
+    })
+
+@app.route("/reservations/<int:reservation_id>", methods=["DELETE"])
+@token_required
+def delete_reservation(current_user, reservation_id):
+    db = SessionLocal()
+    reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not reservation:
+        db.close()
+        return jsonify({"message": "Reservation not found"}), 404
+
+    db.delete(reservation)
+    db.commit()
+    db.close()
+    return jsonify({"message": "Reservation deleted"})
+
+
+@app.route("/admins/<int:admin_id>", methods=["PUT"])
+@token_required
+def update_admin(current_user, admin_id):
+    data = request.json
+    db = SessionLocal()
+    admin = db.query(Admin).filter(Admin.id == admin_id).first()
+    if not admin:
+        db.close()
+        return jsonify({"message": "Admin not found"}), 404
+
+    if "username" in data and data["username"].strip():
+        admin.username = data["username"]
+
+    if "password" in data and data["password"].strip():
+        admin.password = generate_password_hash(data["password"])
+
+    db.commit()
+    db.refresh(admin)
+    db.close()
+    return jsonify({"id": admin.id, "username": admin.username})
 
 
 @app.route("/reservations", methods=["POST"])
