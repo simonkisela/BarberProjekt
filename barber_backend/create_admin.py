@@ -1,18 +1,19 @@
-from barber_backend.models import SessionLocal, Admin
+from barber_backend.db import SessionLocal
+from barber_backend.models import Admin
+from werkzeug.security import generate_password_hash
 
-def create_admin(username: str, password: str):
-    db = SessionLocal()
-    existing_admin = db.query(Admin).filter_by(username=username).first()
-    if existing_admin:
-        print(f"Admin '{username}' už existuje.")
-        db.close()
-        return
-    new_admin = Admin(username=username, password=password)
-    db.add(new_admin)
-    db.commit()
-    db.close()
-    print(f"Admin '{username}' vytvorený.")
+# Vytvorenie admina
+db = SessionLocal()
 
-if __name__ == "__main__":
-    # Zadaj meno a heslo admina, ktoré chceš vytvoriť
-    create_admin("admin", "heslo123")
+username = "admin"
+password = "admin123"
+
+hashed_password = generate_password_hash(password)
+
+new_admin = Admin(username=username, password=hashed_password)
+
+db.add(new_admin)
+db.commit()
+db.close()
+
+print("✅ Admin vytvorený.")

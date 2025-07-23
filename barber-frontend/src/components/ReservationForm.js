@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
 import {
@@ -13,6 +13,8 @@ import {
   Grid,
   MenuItem,
 } from "@mui/material";
+
+import ReCAPTCHA from "react-google-recaptcha";
 
 const TIME_INTERVAL = 20;
 const START_HOUR = 8;
@@ -33,6 +35,8 @@ function generateTimeSlots() {
 }
 const ALL_TIME_SLOTS = generateTimeSlots();
 
+const RECAPTCHA_SITE_KEY = "6Lelv4srAAAAACcrcg4YDlQtxRC_PXthdMRI5dUM"; // Nahraď tvojim site key
+
 function ReservationForm({ isLoggedIn }) {
   const [formData, setFormData] = useState({
     meno: "",
@@ -41,6 +45,7 @@ function ReservationForm({ isLoggedIn }) {
     cas: "",
   });
 
+  const recaptchaRef = useRef(null);
   const navigate = useNavigate();
 
   const [reservedSlots, setReservedSlots] = useState({
@@ -80,6 +85,7 @@ function ReservationForm({ isLoggedIn }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (
       !formData.meno.trim() ||
       !formData.email.trim() ||
@@ -93,19 +99,30 @@ function ReservationForm({ isLoggedIn }) {
       setErrorMsg("Zadaj platný email.");
       return;
     }
+
     setLoading(true);
     setErrorMsg("");
+
     try {
+      // Spusti reCAPTCHA a získaj token
+      const recaptchaValue = await recaptchaRef.current.executeAsync();
+      recaptchaRef.current.reset();
+
       const res = await fetch("http://localhost:5000/reservations", {
         method: "POST",
+        credentials: "include", // dôležité, ak backend posiela cookie (client_id)
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formData.meno,
           email: formData.email,
           date: formData.datum,
           time: formData.cas,
+          recaptcha_token: recaptchaValue, // posielame token na backend
         }),
       });
+
+      const result = await res.json();
+
       if (res.ok) {
         setSuccess(true);
         setTimeout(() => {
@@ -113,7 +130,7 @@ function ReservationForm({ isLoggedIn }) {
           setFormData({ meno: "", email: "", datum: "", cas: "" });
         }, 3000);
       } else {
-        setErrorMsg("Chyba servera, skúste znova.");
+        setErrorMsg(result.message || "Chyba servera, skúste znova.");
       }
     } catch {
       setErrorMsg("Nepodarilo sa pripojiť k serveru.");
@@ -151,7 +168,6 @@ function ReservationForm({ isLoggedIn }) {
           Rezervácia termínu
         </Typography>
 
-        {/* Tlačidlo na prihlásenie - iba keď nie je prihlásený */}
         {!isLoggedIn && (
           <Box
             sx={{
@@ -185,7 +201,6 @@ function ReservationForm({ isLoggedIn }) {
           </Box>
         )}
 
-        {/* Tlačidlo odhlásiť sa - iba keď je prihlásený */}
         {isLoggedIn && (
           <Box sx={{ position: "absolute", top: 16, left: 16 }}>
             <Button
@@ -316,7 +331,6 @@ function ReservationForm({ isLoggedIn }) {
           </Box>
         </Box>
 
-        {/* Animovaný úspech */}
         {success && (
           <Box
             sx={{
@@ -369,6 +383,13 @@ function ReservationForm({ isLoggedIn }) {
             `}</style>
           </Box>
         )}
+
+        {/* reCAPTCHA widget (invisible) */}
+        <ReCAPTCHA
+          sitekey={RECAPTCHA_SITE_KEY}
+          size="invisible"
+          ref={recaptchaRef}
+        />
       </Paper>
     </Container>
   );

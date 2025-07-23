@@ -27,13 +27,25 @@ function AdminsManagement() {
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const [openAdd, setOpenAdd] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [editAdminData, setEditAdminData] = useState(null);
   const [formData, setFormData] = useState({ username: "", password: "" });
 
+  // --- reset password dialog ---
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetAdminData, setResetAdminData] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
+
+  // Príklad načítania roly z localStorage (alebo rozparsovanie JWT)
+  // const role = localStorage.getItem("role") || "admin";
+  // Pre demo bude všetko povolené, neskôr môžeš pridať kontrolu:
+  // const isSuperAdmin = role === "superadmin";
+  // Alebo implementuj podľa potreby
 
   useEffect(() => {
     if (!token) {
@@ -73,6 +85,7 @@ function AdminsManagement() {
     fetchAdmins();
   }, [navigate, token]);
 
+  // DELETE admin
   const handleDelete = async (id) => {
     if (!window.confirm("Naozaj chcete vymazať tohto admina?")) return;
 
@@ -92,30 +105,14 @@ function AdminsManagement() {
     }
   };
 
+  // ADD admin
   const handleAddOpen = () => {
     setFormData({ username: "", password: "" });
     setOpenAdd(true);
   };
-
   const handleAddClose = () => {
     setOpenAdd(false);
   };
-
-  const handleEditOpen = (admin) => {
-    setEditAdminData(admin);
-    setFormData({ username: admin.username, password: "" });
-    setOpenEdit(true);
-  };
-
-  const handleEditClose = () => {
-    setOpenEdit(false);
-    setEditAdminData(null);
-  };
-
-  const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
   const handleAddSubmit = async () => {
     if (!formData.username.trim() || !formData.password.trim()) {
       alert("Vyplňte používateľské meno a heslo");
@@ -144,6 +141,16 @@ function AdminsManagement() {
     }
   };
 
+  // EDIT admin
+  const handleEditOpen = (admin) => {
+    setEditAdminData(admin);
+    setFormData({ username: admin.username, password: "" });
+    setOpenEdit(true);
+  };
+  const handleEditClose = () => {
+    setOpenEdit(false);
+    setEditAdminData(null);
+  };
   const handleEditSubmit = async () => {
     if (!formData.username.trim()) {
       alert("Používateľské meno nesmie byť prázdne");
@@ -177,12 +184,49 @@ function AdminsManagement() {
     }
   };
 
+  // --- RESET PASSWORD ---
+  const handleResetOpen = (admin) => {
+    setResetAdminData(admin);
+    setNewPassword("");
+    setResetOpen(true);
+  };
+  const handleResetClose = () => {
+    setResetOpen(false);
+    setResetAdminData(null);
+    setNewPassword("");
+  };
+  const handleResetSubmit = async () => {
+    if (!newPassword.trim()) {
+      alert("Zadajte nové heslo");
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:5000/admins/${resetAdminData.id}/reset-password`, {
+        method: "POST", // alebo PUT podľa backendu
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ password: newPassword }),
+      });
+
+      if (!res.ok) throw new Error("Chyba pri resetovaní hesla");
+
+      alert("Heslo bolo úspešne resetované.");
+      handleResetClose();
+    } catch (err) {
+      alert(err.message || "Chyba pri resetovaní hesla");
+    }
+  };
+
   return (
     <Container maxWidth="md" sx={{ mt: 6 }}>
       <Typography variant="h4" fontWeight="bold" gutterBottom>
         Správa Adminov
       </Typography>
 
+      {/* Pridať Admina - možno neskôr podľa roly */}
       <Button variant="contained" sx={{ mb: 2 }} onClick={handleAddOpen}>
         Pridať Admina
       </Button>
@@ -220,6 +264,18 @@ function AdminsManagement() {
                     >
                       <EditIcon />
                     </IconButton>
+
+                    {/* Tlačidlo reset hesla */}
+                    <IconButton
+                      color="secondary"
+                      onClick={() => handleResetOpen({ id, username })}
+                      aria-label="Resetovať heslo"
+                      title="Resetovať heslo"
+                      sx={{ ml: 1, mr: 1 }}
+                    >
+                      🔒
+                    </IconButton>
+
                     <IconButton
                       color="error"
                       onClick={() => handleDelete(id)}
@@ -247,7 +303,7 @@ function AdminsManagement() {
             fullWidth
             name="username"
             value={formData.username}
-            onChange={handleChange}
+            onChange={(e) => setFormData((prev) => ({ ...prev, username: e.target.value }))}
           />
           <TextField
             margin="dense"
@@ -256,7 +312,7 @@ function AdminsManagement() {
             fullWidth
             name="password"
             value={formData.password}
-            onChange={handleChange}
+            onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
           />
         </DialogContent>
         <DialogActions>
@@ -279,7 +335,7 @@ function AdminsManagement() {
             fullWidth
             name="username"
             value={formData.username}
-            onChange={handleChange}
+            onChange={(e) => setFormData((prev) => ({ ...prev, username: e.target.value }))}
           />
           <TextField
             margin="dense"
@@ -288,7 +344,7 @@ function AdminsManagement() {
             fullWidth
             name="password"
             value={formData.password}
-            onChange={handleChange}
+            onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
             helperText="Nechajte prázdne, ak nechcete meniť heslo"
           />
         </DialogContent>
@@ -296,6 +352,28 @@ function AdminsManagement() {
           <Button onClick={handleEditClose}>Zrušiť</Button>
           <Button onClick={handleEditSubmit} variant="contained">
             Uložiť
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog Reset hesla */}
+      <Dialog open={resetOpen} onClose={handleResetClose}>
+        <DialogTitle>Resetovať heslo pre {resetAdminData?.username}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Nové heslo"
+            type="password"
+            fullWidth
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleResetClose}>Zrušiť</Button>
+          <Button onClick={handleResetSubmit} variant="contained">
+            Resetovať
           </Button>
         </DialogActions>
       </Dialog>

@@ -13,16 +13,169 @@ import {
   Box,
   Button,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 import { useNavigate } from "react-router-dom";
 
 import { motion, AnimatePresence } from "framer-motion";
 
+// -----------------------
+// EditReservation komponent
+// -----------------------
+function EditReservation({ reservationId, onClose, onUpdated }) {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    date: "",
+    time: "",
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const token = localStorage.getItem("token");
+
+  useEffect(() => {
+    async function fetchReservation() {
+      try {
+        const res = await fetch(`http://localhost:5000/reservations/${reservationId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Rezervácia nenájdená");
+        const data = await res.json();
+        setForm({
+          name: data.name,
+          email: data.email,
+          date: data.date.split("T")[0], // len dátum, odstránime čas z ISO stringu
+          time: data.time,
+        });
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchReservation();
+  }, [reservationId, token]);
+
+  const handleChange = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      const res = await fetch(`http://localhost:5000/reservations/${reservationId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Chyba pri ukladaní zmien");
+      }
+      onUpdated(); // refresh zoznamu v rodičovi
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>Upraviť rezerváciu</DialogTitle>
+      <DialogContent dividers>
+        {loading ? (
+          <Box sx={{ textAlign: "center", py: 4 }}>
+            <CircularProgress />
+            <Typography mt={2}>Načítavam rezerváciu...</Typography>
+          </Box>
+        ) : (
+          <Box component="form" onSubmit={handleSubmit} noValidate>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+            <TextField
+              label="Meno"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              fullWidth
+              margin="normal"
+              required
+              autoFocus
+            />
+            <TextField
+              label="Email"
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={handleChange}
+              fullWidth
+              margin="normal"
+              required
+            />
+            <TextField
+              label="Dátum"
+              name="date"
+              type="date"
+              value={form.date}
+              onChange={handleChange}
+              fullWidth
+              margin="normal"
+              required
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Čas"
+              name="time"
+              type="time"
+              value={form.time}
+              onChange={handleChange}
+              fullWidth
+              margin="normal"
+              required
+              InputLabelProps={{ shrink: true }}
+            />
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} color="inherit">
+          Zrušiť
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={loading}
+        >
+          Uložiť zmeny
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// -----------------------
+// Hlavný AdminPanel komponent
+// -----------------------
 function AdminPanel() {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editId, setEditId] = useState(null); // id rezervácie na edit
+
   const navigate = useNavigate();
 
   const token = localStorage.getItem("token");
@@ -85,6 +238,27 @@ function AdminPanel() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/login");
+  };
+
+  // Po úspešnom editovaní načítame rezervácie znova
+  const handleUpdated = () => {
+    // Môžeme zavolať fetch znovu alebo refetchovať inak
+    setLoading(true);
+    fetch("http://localhost:5000/reservations", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Nepodarilo sa načítať rezervácie");
+        return res.json();
+      })
+      .then((data) => {
+        setReservations(data);
+        setError("");
+      })
+      .catch((err) => {
+        setError(err.message || "Chyba pri načítaní dát");
+      })
+      .finally(() => setLoading(false));
   };
 
   return (
@@ -201,6 +375,18 @@ function AdminPanel() {
                       <TableCell>{time}</TableCell>
                       <TableCell align="center">
                         <IconButton
+                          color="primary"
+                          onClick={() => setEditId(id)}
+                          aria-label="Editovať"
+                          sx={{
+                            mr: 1,
+                            transition: "transform 0.2s ease",
+                            "&:hover": { transform: "scale(1.2)" },
+                          }}
+                        >
+                          <EditIcon fontSize="medium" />
+                        </IconButton>
+                        <IconButton
                           color="error"
                           onClick={() => handleDelete(id)}
                           aria-label="Vymazať"
@@ -220,6 +406,15 @@ function AdminPanel() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modálne okno pre editáciu */}
+      {editId && (
+        <EditReservation
+          reservationId={editId}
+          onClose={() => setEditId(null)}
+          onUpdated={handleUpdated}
+        />
+      )}
     </Container>
   );
 }
